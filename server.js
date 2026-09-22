@@ -44,7 +44,7 @@ function emitGame(r){
 function clearTimers(r){for(const k of ["tick","chaosTimer","scoreTimer","countdownTimer","nextTimer","powerupTimer"])if(r[k]){clearInterval(r[k]);clearTimeout(r[k]);r[k]=null}}
 function startRound(r){
  clearTimers(r);r.state="countdown";r.round++;r.event=null;r.eventUntil=0;r.powerups=[];
- for(const p of Object.values(r.players)){p.alive=true;p.roundScore=0;p.x=W/2;p.y=H/2;p.vx=0;p.vy=0;p.lastDx=0;p.lastDy=-1;p.dashUntil=0;p.dashCooldown=0;p.kickCooldown=0;p.speedUntil=0;p.shield=false;p.roundSurvival=0}
+ for(const p of Object.values(r.players)){p.alive=true;p.roundScore=0;p.x=W/2;p.y=H/2;p.vx=0;p.vy=0;p.lastDx=0;p.lastDy=-1;p.dashUntil=0;p.dashCooldown=0;p.kickCooldown=0;p.speedUntil=0;p.shield=false;p.magnetUntil=0;p.timeBurstUntil=0;p.phaseUntil=0;p.scoreBoostUntil=0;p.repulseUntil=0;p.roundSurvival=0}
  r.rocket=null;r.rockets=[];r.roundStartedAt=Date.now();r.lastScoreTick=Date.now();
  console.log("ROUND PREP START",{round:r.round,state:r.state,rockets:r.rockets.length});
  broadcast(r);io.to(r.code).emit("countdown",{duration:5000});
