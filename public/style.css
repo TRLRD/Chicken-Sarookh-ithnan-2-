@@ -60,3 +60,42 @@
 .confettiLayer i:nth-child(4n){background:#a7f3d0;border-radius:50%}
 @keyframes podHype{0%{opacity:0;transform:translateY(70px) scale(.72) rotate(-4deg);filter:blur(6px)}55%{opacity:1;transform:translateY(-12px) scale(1.08) rotate(1deg);filter:blur(0)}75%{transform:translateY(4px) scale(.98)}100%{opacity:1;transform:none;filter:none}}
 @keyframes confettiFall{0%{top:-24px;transform:translateX(0) rotate(0)}45%{top:52%;transform:translateX(var(--x)) rotate(calc(var(--r) * .5))}100%{top:110%;transform:translateX(calc(var(--x) * 1.15)) rotate(var(--r));opacity:0}}
+
+/* FINAL POLISH PASS */
+#leaderboard{width:280px;padding:14px 12px;background:linear-gradient(180deg,#081323f2,#07101de8);border-color:#40516d;box-shadow:0 16px 40px #0009,0 0 25px #38bdf81a}
+.lbTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px}
+.lbTitle:after{content:"ROUND";font-size:8px;color:#64748b;letter-spacing:1px}
+.lbRow{min-height:42px;gap:8px;padding:5px 7px;margin:4px 0;border:1px solid transparent;transition:.2s transform,.2s background,.2s border-color}
+.lbRow:hover{transform:translateX(-2px);background:#ffffff0b}
+.lbRow.me{background:linear-gradient(90deg,#ffffff14,#ffffff05);border-color:#67e8f955;box-shadow:inset 3px 0 #67e8f9}
+.lbRow:nth-child(1){background:linear-gradient(90deg,#fbbf2418,transparent);border-color:#fbbf2430}
+.lbRow:nth-child(2){background:linear-gradient(90deg,#cbd5e112,transparent)}
+.lbRow:nth-child(3){background:linear-gradient(90deg,#f59e0b12,transparent)}
+.lbRow .rank{width:22px;text-align:center;font-size:13px;font-weight:1000}
+.lbAvatar{width:38px;height:42px;flex:0 0 38px;transform:scale(.58);transform-origin:center;margin:-1px -4px}
+.lbName{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:850}
+.lbName .lbState{display:block;margin:2px 0 0}
+.lbRow .score{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;min-width:48px}
+.lbRow .score b{font-size:14px;color:#fff}
+.lbRow .score small{font-size:8px;color:#64748b;margin-top:3px;white-space:nowrap}
+.lbRow:nth-child(1) .score b{color:#fbbf24}
+.lbRow.dead .score b{text-decoration:line-through;color:#94a3b8}
+#powerStatus{padding:7px 12px;border-radius:999px;background:#07101dcc;border:1px solid #67e8f955;box-shadow:0 0 18px #67e8f922}
+#countdown{background:radial-gradient(circle,#ffffff08,transparent 38%);text-shadow:0 0 30px #fff,0 6px 30px #000}
+#event{padding:8px 18px;border-radius:999px;background:#090f1dcc;border:1px solid #fbbf2455;box-shadow:0 0 25px #fbbf2422}
+.resultHidden{visibility:hidden!important;opacity:0!important;animation:none!important;filter:none!important}
+.resultHidden.revealThird,.resultHidden.revealSecond,.resultHidden.revealFirst{visibility:visible!important;animation:podHype .85s cubic-bezier(.16,1,.3,1) forwards!important}
+.resultHidden.revealFirst{animation-duration:1.15s!important}
+.resultHiddenRest{visibility:hidden!important;opacity:0!important}
+.resultHiddenRest:not(.hidden){visibility:hidden!important}
+.resultsCard{background:radial-gradient(circle at 50% 10%,#243656 0,#0b1222 38%,#050812 78%);position:relative}
+.resultsCard:after{content:"";position:absolute;inset:8%;border:1px solid #ffffff0a;border-radius:30px;pointer-events:none;box-shadow:inset 0 0 80px #38bdf80a}
+.podium{min-height:310px;position:relative;z-index:2}
+.pod{position:relative;overflow:hidden;transition:box-shadow .25s}
+.pod:after{content:"";position:absolute;inset:-50%;background:linear-gradient(115deg,transparent 42%,#ffffff12 50%,transparent 58%);transform:translateX(-35%);animation:podShine 3.2s linear infinite;pointer-events:none}
+.pod.first{transform-origin:center bottom}
+.revealFirst{box-shadow:0 0 35px #fbbf2433,0 0 90px #fbbf2418!important}
+@keyframes podShine{to{transform:translateX(35%)}}
+@keyframes winnerFlash{0%{opacity:0}20%{opacity:.7}100%{opacity:0}}
+@media(max-width:850px){#leaderboard{width:260px}.lbAvatar{transform:scale(.54)}}
+@media(max-width:600px){#leaderboard{width:100%;padding:9px}.lbRow{min-width:132px}.lbAvatar{display:none}.lbName{font-size:10px}.lbRow .score small{display:none}.podium{min-height:250px}}
