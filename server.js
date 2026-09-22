@@ -22,7 +22,6 @@ function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();w
 function cleanName(n){return String(n||"Chicken").replace(/[<>]/g,"").trim().slice(0,16)||"Chicken"}
 const COSMETICS={upper:["none","crown","sunglasses","chef","halo"],lower:["none","boots","skates","flames","jet"]};
 function cleanCosmetics(c){c=c&&typeof c==="object"?c:{};return {color:COLORS.includes(c.color)?c.color:COLORS[0],upper:COSMETICS.upper.includes(c.upper)?c.upper:"none",lower:COSMETICS.lower.includes(c.lower)?c.lower:"none"}}
-function playerData(name,color,cosmetics,pos){const c=cleanCosmetics(cosmetics);return {id:name,name:cleanName(color),color:c.color,upper:c.upper,lower:c.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false}}
 function spawn(i){return [{x:180,y:180},{x:1020,y:180},{x:180,y:520},{x:1020,y:520},{x:600,y:160},{x:600,y:540},{x:300,y:350},{x:900,y:350}][i%8]}
 function newRocket(speed=210,r=25){const a=Math.random()*Math.PI*2;return {x:W/2,y:H/2,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,id:Math.random().toString(36).slice(2),bounceSpeed:1.06}}
 function pickPower(){const total=POWERUPS.reduce((s,p)=>s+p.weight,0);let n=Math.random()*total;for(const p of POWERUPS){n-=p.weight;if(n<=0)return p}return POWERUPS[0]}
@@ -72,8 +71,7 @@ function finalResults(r){
 function maybeChaos(r){
  if(r.state!=="playing"||r.event)return;
  const events=["ROCKET BOOST","DOUBLE SAROOKH","GIANT SAROOKH","SHRINKING ARENA","CHICKEN PANIC","BLACKOUT"];
- const e=events[Math.floor(Math.random()*events.length)];r.event=e;r.eventUntil=Date.now()+5000;if(e==="BLACKOUT")r.blackoutUntil=r.eventUntil;
- if(e==="DOUBLE SAROOKH"&&r.rockets.length<2)r.rockets.push(newRocket(210));
+ const e=events[Math.floor(Math.random()*events.length)];r.event=e;r.eventUntil=Date.now()+5000;if(e==="DOUBLE SAROOKH"&&r.rockets.length<2)r.rockets.push(newRocket(210));
  if(e==="GIANT SAROOKH")r.rockets[0].r=52;
  if(e==="BLACKOUT")r.blackoutUntil=r.eventUntil;
  io.to(r.code).emit("event",{name:e,duration:5000});
