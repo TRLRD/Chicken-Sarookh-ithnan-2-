@@ -111,15 +111,22 @@ function tick(r){
   for(const q of [...r.powerups])if(Math.hypot(p.x-q.x,p.y-q.y)<34){collect(r,p,q);break}
  }
  for(const q of r.rockets){
+  const prevX=q.x,prevY=q.y;
   q.x+=q.vx*dt*speedBoost;q.y+=q.vy*dt*speedBoost;
   if(q.x<q.r){q.x=q.r;q.vx=Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.x>W-q.r){q.x=W-q.r;q.vx=-Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.y<q.r){q.y=q.r;q.vy=Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   const currentSpeed=Math.hypot(q.vx,q.vy),maxSpeed=560;if(currentSpeed>maxSpeed){const k=maxSpeed/currentSpeed;q.vx*=k;q.vy*=k}
-  for(const p of Object.values(r.players))if(p.connected!==false&&p.alive&&Math.hypot(p.x-q.x,p.y-q.y)<q.r+22){
-   if(p.shield){p.shield=false;io.to(r.code).emit("shieldBreak",p.id)}
-   else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
+  for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
+   const dx=q.x-prevX,dy=q.y-prevY,len2=dx*dx+dy*dy;
+   const t=len2?Math.max(0,Math.min(1,((p.x-prevX)*dx+(p.y-prevY)*dy)/len2)):0;
+   const cx=prevX+dx*t,cy=prevY+dy*t;
+   const hitRadius=Math.max(18,q.r*.72)+18;
+   if(Math.hypot(p.x-cx,p.y-cy)<hitRadius){
+    if(p.shield){p.shield=false;io.to(r.code).emit("shieldBreak",p.id)}
+    else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
+   }
   }
  }
  const alive=Object.values(r.players).filter(p=>p.connected!==false&&p.alive);
