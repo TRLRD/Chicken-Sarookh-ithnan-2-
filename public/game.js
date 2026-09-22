@@ -1,4 +1,4 @@
-const socket=io();const $=id=>document.getElementById(id);const menu=$("menu"),lobby=$("lobby"),game=$("game"),results=$("results"),canvas=$("canvas"),ctx=canvas.getContext("2d");let room=null,me=null,players={},rockets=[],powerups=[],eventName=null,eventUntil=0,keys={},last=0,audio=null,settings=JSON.parse(localStorage.getItem("cs2audio")||'{"music":.18,"sfx":.35,"muteMusic":false,"muteSfx":false}'),musicTimer=null,localPos={},fx=[];
+const socket=io();const $=id=>document.getElementById(id),menu=$("menu"),lobby=$("lobby"),game=$("game"),results=$("results"),canvas=$("canvas"),ctx=canvas.getContext("2d");let room=null,me=null,players={},rockets=[],powerups=[],eventName=null,eventUntil=0,keys={},last=0,audio=null,settings=JSON.parse(localStorage.getItem("cs2audio")||'{"music":0.18,"sfx":0.35,"muteMusic":false,"muteSfx":false}'),musicTimer=null,localPos={},fx=[];
 
 function show(s){[menu,lobby,game,results].forEach(x=>x.classList.add("hidden"));s.classList.remove("hidden")}
 function err(t){$("error").textContent=t;setTimeout(()=>$("error").textContent="",3000)}
@@ -6,7 +6,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 function sound(freq=500,dur=.08){if(settings.muteSfx)return;try{audio??=new AudioContext();const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=freq;g.gain.value=settings.sfx*.12;o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch{}}
 function startMusic(mode){if(settings.muteMusic)return;if(musicTimer)clearInterval(musicTimer);const seq=mode==="game"?[110,165,220,165,277,220]:mode==="menu"?[220,277,330,277]:[165,196,247,196];let i=0;musicTimer=setInterval(()=>sound(seq[i++%seq.length],.13),360)}
 $("showJoin").onclick=()=>$("joinBox").classList.remove("hidden");
-$("create").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");startMusic("lobby");socket.emit("create",$("name").value)};
+$("create").onclick=()=>{if(!$(("name")).value.trim())return err("Enter your name!");startMusic("lobby");socket.emit("create",$("name").value)};
 $("join").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");startMusic("lobby");socket.emit("join",{room:$("room").value,name:$("name").value})};
 $("start").onclick=()=>socket.emit("start");
 $("copyCode").onclick=async()=>{try{await navigator.clipboard.writeText(room.code);toast("ROOM CODE COPIED")}catch{}};
