@@ -10,9 +10,9 @@ function avatarMarkup(c,mini=""){const u=["none","crown","sunglasses","chef","ha
 function updateCosmetics(){cosmetics={color:$("colorChoice").value,upper:$("upperChoice").value,lower:$("lowerChoice").value};$("avatarPreview").innerHTML=avatarMarkup(cosmetics,"preview");}
 ["colorChoice","upperChoice","lowerChoice"].forEach(id=>$(id).onchange=updateCosmetics);updateCosmetics();
 $("showJoin").onclick=()=>$("joinBox").classList.remove("hidden");
-$("create").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");startMusic("lobby");socket.emit("create",{name:$("name").value,cosmetics})};
-$("join").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");startMusic("lobby");socket.emit("join",{room:$("room").value,name:$("name").value,cosmetics})};
-$("start").onclick=()=>socket.emit("start");
+$("create").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");$("name").blur();startMusic("lobby");socket.emit("create",{name:$("name").value,cosmetics})};
+$("join").onclick=()=>{if(!$("name").value.trim())return err("Enter your name!");$("name").blur();$("room").blur();startMusic("lobby");socket.emit("join",{room:$("room").value,name:$("name").value,cosmetics})};
+$("start").onclick=()=>{document.activeElement?.blur();socket.emit("start")};
 $("roundSetting").onchange=()=>socket.emit("setRounds",Number($("roundSetting").value));
 function syncRoomAvatar(){const c={color:$("roomColorChoice").value,upper:$("roomUpperChoice").value,lower:$("roomLowerChoice").value};$("roomAvatarPreview").innerHTML=avatarMarkup(c,"preview");socket.emit("setCosmetics",c)}
 ["roomColorChoice","roomUpperChoice","roomLowerChoice"].forEach(id=>$(id).onchange=syncRoomAvatar);
@@ -38,10 +38,10 @@ function renderLB(){const arr=Object.values(players).sort((a,b)=>(b.roundScore||
 function showResults(list){show(results);const top=list.slice(0,3);$("podium").innerHTML=top.map((p,i)=>`<div class="pod ${i===0?"first":""}"><div class="medal">${["1ST","2ND","3RD"][i]}</div>${avatarMarkup(p,"resultAvatar")}<div class="name">${esc(p.name)}</div><div class="pts">${p.score} TOTAL</div><small>${p.roundWins} round wins</small></div>`).join("");$("otherPlayers").innerHTML=list.slice(3).map(p=>`<div class="otherRow">${avatarMarkup(p,"tiny")}<span>${p.place}. ${esc(p.name)}</span><b>${p.score}</b></div>`).join("")||"<div class='otherRow'>No other players</div>";$("playAgain").classList.remove("hidden");startMusic("results")}
 function toast(t){$("toast").textContent=t;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").textContent="",1800)}
 function flash(){canvas.animate([{filter:"brightness(2.2)"},{filter:"brightness(1)"}],240)}
-function addKeys(e,v){if(document.activeElement.tagName==="INPUT")return;keys[e.key.toLowerCase()]=v}
+function addKeys(e,v){const tag=document.activeElement?.tagName;if(game.classList.contains("hidden")&&(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA"))return;keys[e.key.toLowerCase()]=v}
 addEventListener("keydown",e=>{addKeys(e,true);if(e.code==="Space"){e.preventDefault();socket.emit("dash")}if(e.key.toLowerCase()==="e")socket.emit("kick")});
 addEventListener("keyup",e=>addKeys(e,false));
-setInterval(()=>{let x=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),y=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);socket.emit("input",{x,y})},50);
+setInterval(()=>{let x=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),y=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(game.classList.contains("hidden")){x=0;y=0}socket.emit("input",{x,y})},50);
 function draw(){
  ctx.clearRect(0,0,1200,700);ctx.fillStyle="#0b1425";ctx.fillRect(0,0,1200,700);
  const shrink=eventName==="SHRINKING ARENA"&&Date.now()<eventUntil,pad=shrink?90:30;
@@ -62,8 +62,8 @@ function drawChicken(p,hidden=false){
  const step=moving?Math.sin(Date.now()/55)*5:0;ctx.strokeStyle="#f59e0b";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-8,25);ctx.lineTo(-10-step,34);ctx.moveTo(8,25);ctx.lineTo(10+step,34);ctx.stroke();
  if(p.lower==="boots"){ctx.lineWidth=7;ctx.strokeStyle="#334155";ctx.beginPath();ctx.moveTo(-9,27);ctx.lineTo(-11-step,35);ctx.moveTo(9,27);ctx.lineTo(11+step,35);ctx.stroke()}
  if(p.lower==="skates"){ctx.strokeStyle="#cbd5e1";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-13,35);ctx.lineTo(-3,35);ctx.moveTo(7,35);ctx.lineTo(17,35);ctx.stroke()}
- if(p.lower==="flames"){ctx.fillStyle="#fb7185";ctx.beginPath();ctx.moveTo(-13,35);ctx.lineTo(-9,23);ctx.lineTo(-4,35);ctx.moveTo(6,35);ctx.lineTo(10,23);ctx.lineTo(15,35);ctx.fill()}
- if(p.lower==="jet"){ctx.fillStyle="#94a3b8";ctx.fillRect(-15,28,8,9);ctx.fillRect(7,28,8,9);ctx.fillStyle="#fb923c";ctx.beginPath();ctx.moveTo(-11,37);ctx.lineTo(-7,37);ctx.lineTo(-9,47);ctx.closePath();ctx.moveTo(9,37);ctx.lineTo(13,37);ctx.lineTo(11,47);ctx.closePath();ctx.fill()}
+ if(p.lower==="flames"){const f=Math.sin(Date.now()/75)*2;ctx.fillStyle="#fb7185";ctx.beginPath();ctx.moveTo(-15,37);ctx.lineTo(-11,24-f);ctx.lineTo(-7,31);ctx.lineTo(-4,20+f);ctx.lineTo(0,37);ctx.closePath();ctx.moveTo(5,37);ctx.lineTo(9,27+f);ctx.lineTo(13,32);ctx.lineTo(17,22-f);ctx.lineTo(19,37);ctx.closePath();ctx.fill();ctx.fillStyle="#fbbf24";ctx.beginPath();ctx.moveTo(-11,36);ctx.lineTo(-8,28-f);ctx.lineTo(-5,36);ctx.closePath();ctx.moveTo(9,36);ctx.lineTo(12,29-f);ctx.lineTo(15,36);ctx.closePath();ctx.fill()}
+ if(p.lower==="jet"){const j=Math.sin(Date.now()/65)*2;ctx.fillStyle="#64748b";ctx.beginPath();ctx.roundRect(-16,27,10,11,3);ctx.roundRect(6,27,10,11,3);ctx.fill();ctx.fillStyle="#cbd5e1";ctx.fillRect(-14,29,6,4);ctx.fillRect(8,29,6,4);ctx.fillStyle="#fb923c";ctx.shadowBlur=10;ctx.shadowColor="#fb923c";ctx.beginPath();ctx.moveTo(-13,38);ctx.lineTo(-7,38);ctx.lineTo(-10,49+j);ctx.closePath();ctx.moveTo(7,38);ctx.lineTo(13,38);ctx.lineTo(10,49-j);ctx.closePath();ctx.fill();ctx.fillStyle="#fde68a";ctx.beginPath();ctx.moveTo(-11,40);ctx.lineTo(-8,40);ctx.lineTo(-10,46+j);ctx.closePath();ctx.moveTo(8,40);ctx.lineTo(11,40);ctx.lineTo(10,46-j);ctx.closePath();ctx.fill();ctx.shadowBlur=0}
  if(p.upper==="crown"){ctx.fillStyle="#fbbf24";ctx.beginPath();ctx.moveTo(-14,-29);ctx.lineTo(-10,-42);ctx.lineTo(-2,-34);ctx.lineTo(5,-43);ctx.lineTo(13,-29);ctx.closePath();ctx.fill()}
  if(p.upper==="sunglasses"){ctx.fillStyle="#111827";ctx.fillRect(-14,-24,11,7);ctx.fillRect(3,-24,11,7);ctx.fillRect(-3,-22,6,3)}
  if(p.upper==="chef"){ctx.fillStyle="#f8fafc";ctx.beginPath();ctx.arc(-7,-40,7,0,7);ctx.arc(2,-43,9,0,7);ctx.arc(11,-39,6,0,7);ctx.fill()}
