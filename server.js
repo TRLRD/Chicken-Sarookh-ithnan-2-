@@ -15,7 +15,12 @@ const POWERUPS=[
  {type:"SHIELD",label:"SHIELD",rarity:"uncommon",weight:30,duration:0},
  {type:"ZAP",label:"SCORE ZAP",rarity:"uncommon",weight:30,duration:0},
  {type:"REDIRECT",label:"ROCKET REDIRECT",rarity:"rare",weight:15,duration:5000},
- {type:"CHAOS",label:"CHAOS",rarity:"epic",weight:5,duration:4000}
+ {type:"CHAOS",label:"CHAOS",rarity:"epic",weight:5,duration:4000},
+ {type:"MAGNET",label:"MAGNET",rarity:"rare",weight:15,duration:6000},
+ {type:"TIMEBURST",label:"TIME BURST",rarity:"rare",weight:15,duration:4500},
+ {type:"PHASE",label:"PHASE",rarity:"epic",weight:5,duration:3000},
+ {type:"SCOREBOOST",label:"SCORE BOOST",rarity:"uncommon",weight:30,duration:7000},
+ {type:"REPULSE",label:"REPULSE",rarity:"rare",weight:15,duration:3000}
 ];
 
 function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(rooms.has(c));return c}
@@ -32,9 +37,9 @@ function broadcast(r){io.to(r.code).emit("state",publicRoom(r))}
 function emitGame(r){
  io.to(r.code).emit("gameState",{players:Object.values(r.players).map(p=>({
   id:p.id,x:p.x,y:p.y,targetX:p.x,targetY:p.y,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,connected:p.connected!==false,score:p.score,roundScore:p.roundScore||0,
-  dashCooldown:p.dashCooldown,speedUntil:p.speedUntil,shield:p.shield
+  dashCooldown:p.dashCooldown,speedUntil:p.speedUntil,shield:p.shield,magnetUntil:p.magnetUntil,timeBurstUntil:p.timeBurstUntil,phaseUntil:p.phaseUntil,scoreBoostUntil:p.scoreBoostUntil,repulseUntil:p.repulseUntil
  })),rockets:r.rockets,round:r.round,state:r.state,event:r.event,eventUntil:r.eventUntil,
- powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,type:q.type,label:q.label,rarity:q.rarity})),serverNow:Date.now(),roundStartedAt:r.roundStartedAt||0});
+ powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,rarity:q.rarity})),serverNow:Date.now(),roundStartedAt:r.roundStartedAt||0});
 }
 function clearTimers(r){for(const k of ["tick","chaosTimer","scoreTimer","countdownTimer","nextTimer","powerupTimer"])if(r[k]){clearInterval(r[k]);clearTimeout(r[k]);r[k]=null}}
 function startRound(r){
@@ -91,7 +96,7 @@ function maybeChaos(r){
 function spawnPowerup(r){
  if(r.state!=="playing"||r.powerups.length>=3)return;
  const p=pickPower(),q={id:Math.random().toString(36).slice(2),x:80+Math.random()*(W-160),y:80+Math.random()*(H-160),...p};
- r.powerups.push(q);io.to(r.code).emit("powerupSpawn",q);
+ r.powerups.push(q);io.to(r.code).emit("powerupSpawn",{id:q.id,x:q.x,y:q.y,rarity:q.rarity});
 }
 function collect(r,p,q){
  r.powerups=r.powerups.filter(x=>x.id!==q.id);p.powerupsCollected++;
@@ -104,7 +109,12 @@ function collect(r,p,q){
  }
  if(q.type==="REDIRECT"){for(const rocket of r.rockets){rocket.vx*=-1;rocket.vy*=-1}p.redirectUntil=Date.now()+q.duration}
  if(q.type==="CHAOS"){r.event="CHICKEN PANIC";r.eventUntil=Date.now()+q.duration}
- io.to(r.code).emit("powerup",{id:p.id,type:q.type,label:q.label});
+ if(q.type==="MAGNET")p.magnetUntil=Date.now()+q.duration;
+ if(q.type==="TIMEBURST")p.timeBurstUntil=Date.now()+q.duration;
+ if(q.type==="PHASE")p.phaseUntil=Date.now()+q.duration;
+ if(q.type==="SCOREBOOST")p.scoreBoostUntil=Date.now()+q.duration;
+ if(q.type==="REPULSE")p.repulseUntil=Date.now()+q.duration;
+ io.to(r.code).emit("powerup",{id:p.id,type:q.type,label:q.label,duration:q.duration});
 }
 function tick(r){
  if(r.state!=="playing"&&r.state!=="countdown")return;
@@ -119,7 +129,10 @@ function tick(r){
   p.x+=p.vx*dt*mult;p.y+=p.vy*dt*mult
   p.x=Math.max(35,Math.min(W-35,p.x));p.y=Math.max(45,Math.min(H-35,p.y));
   p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.kickCooldown=Math.max(0,p.kickCooldown-dt);
-  for(const q of [...r.powerups])if(Math.hypot(p.x-q.x,p.y-q.y)<34){collect(r,p,q);break}
+  for(const q of [...r.powerups]){
+   if(p.magnetUntil>now&&Math.hypot(p.x-q.x,p.y-q.y)<170){const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy)||1;q.x+=dx/d*3;q.y+=dy/d*3}
+   if(Math.hypot(p.x-q.x,p.y-q.y)<34){collect(r,p,q);break}
+ }
  }
  const shieldBlocked=new Set();
  for(const q of r.rockets){
@@ -138,6 +151,7 @@ function tick(r){
    const hitRadius=Math.max(18,q.r*.72)+18;
    if(Math.hypot(p.x-cx,p.y-cy)<hitRadius){
     if(p.shield){p.shield=false;shieldBlocked.add(p.id);io.to(r.code).emit("shieldBreak",p.id)}
+    else if(p.phaseUntil>now){io.to(r.code).emit("phaseHit",p.id)}
     else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
    }
   }
@@ -162,8 +176,8 @@ function leave(socket){
 io.on("connection",socket=>{
  socket.on("create",name=>{
   if(socket.room)return;
-  const c=code(),data=typeof name==="object"?name:{name},pos=spawn(0),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:cleanName(data.name),color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundScore:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
-  const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,maxRounds:3,rocket:null,rockets:[],event:null,eventUntil:0,blackoutUntil:0,powerups:[]};
+  const c=code(),data=typeof name==="object"?name:{name},pos=spawn(0),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:cleanName(data.name),color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundScore:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false,magnetUntil:0,timeBurstUntil:0,phaseUntil:0,scoreBoostUntil:0,repulseUntil:0};
+  const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,maxRounds:3,rocket:null,rockets:[],event:null,eventUntil:0,blackoutUntil:0,powerups:[],rematchVotes:new Set(),rematchCancelled:false};
   rooms.set(c,r);socket.join(c);socket.room=c;socket.data.name=p.name;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("join",(payload={})=>{
@@ -174,7 +188,7 @@ io.on("connection",socket=>{
   if(r.state!=="lobby"&&r.state!=="matchEnd")return socket.emit("errorMsg","Game already started!");
   const data=typeof name==="object"?name:{...payload,name};
   const names=new Set(Object.values(r.players).map(p=>p.name.toLowerCase()));let n=cleanName(data.name),base=n,i=2;while(names.has(n.toLowerCase()))n=(base.slice(0,13)+" "+i++).trim();
-  const idx=Object.keys(r.players).length,s=spawn(idx),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:n,color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundScore:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
+  const idx=Object.keys(r.players).length,s=spawn(idx),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:n,color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundScore:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false,magnetUntil:0,timeBurstUntil:0,phaseUntil:0,scoreBoostUntil:0,repulseUntil:0};
   r.players[socket.id]=p;socket.join(r.code);socket.room=r.code;socket.data.name=n;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("setCosmetics",data=>{const r=rooms.get(socket.room),p=r?.players[socket.id];if(!r||!p||r.state!=="lobby")return;const cos=cleanCosmetics(data);p.color=cos.color;p.upper=cos.upper;p.lower=cos.lower;broadcast(r)});
@@ -203,8 +217,15 @@ io.to(r.code).emit("action",{type:"dash",id:p.id});
   if(target){const dx=target.x-p.x,dy=target.y-p.y,m=Math.hypot(dx,dy)||1;target.x=Math.max(35,Math.min(W-35,target.x+dx/m*100));target.y=Math.max(45,Math.min(H-35,target.y+dy/m*100));p.kicksLanded++;p.roundScore+=25;io.to(r.code).emit("scoreFx",{id:p.id,amount:25,label:"KICK BONUS"});io.to(r.code).emit("action",{type:"kick",id:p.id,target:target.id})}
  });
  socket.on("setRounds",value=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||r.state!=="lobby")return;const n=Math.max(1,Math.min(9,Number(value)||3));r.maxRounds=n;broadcast(r)});
- socket.on("again",()=>{const r=rooms.get(socket.room);if(!r||r.state!=="matchEnd")return;for(const p of Object.values(r.players)){if(p.connected!==false){p.score=0;p.roundScore=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0;p.alive=true}}startRound(r)});
- socket.on("returnLobby",()=>{const r=rooms.get(socket.room);if(!r)return;clearTimers(r);r.state="lobby";r.round=0;r.event=null;r.eventUntil=0;r.powerups=[];for(const p of Object.values(r.players)){if(p.connected!==false){p.score=0;p.roundScore=0;p.roundWins=0;p.alive=true}}broadcast(r)});
+ socket.on("again",()=>{
+ const r=rooms.get(socket.room);if(!r||r.state!=="matchEnd"||r.rematchCancelled)return;
+ const eligible=Object.values(r.players).filter(p=>p.connected!==false);if(!eligible.some(p=>p.id===socket.id))return;
+ r.rematchVotes??=new Set();r.rematchVotes.add(socket.id);
+ const count=[...r.rematchVotes].filter(id=>r.players[id]?.connected!==false).length;
+ io.to(r.code).emit("rematch",{count,total:eligible.length});
+ if(eligible.every(p=>r.rematchVotes.has(p.id))){r.rematchVotes.clear();r.rematchCancelled=false;for(const p of eligible){p.score=0;p.roundScore=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0;p.alive=true}startRound(r)}
+});
+ socket.on("returnLobby",()=>{const r=rooms.get(socket.room);if(!r)return;clearTimers(r);r.rematchVotes=new Set();r.rematchCancelled=true;r.state="lobby";r.round=0;r.event=null;r.eventUntil=0;r.powerups=[];r.rockets=[];for(const p of Object.values(r.players)){if(p.connected!==false){p.score=0;p.roundScore=0;p.roundWins=0;p.alive=true}}broadcast(r);io.to(r.code).emit("rematchCancelled",{message:"A player returned to the lobby. Return to lobby to start a new room/game."})});
  socket.on("disconnect",()=>leave(socket));
 });
 server.listen(process.env.PORT||3000,()=>console.log("Chicken Sarookh 2 running on port "+(process.env.PORT||3000)));
