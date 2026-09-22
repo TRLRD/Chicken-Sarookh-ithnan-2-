@@ -22,8 +22,8 @@
 .avatarModel[data-upper="halo"] .upper{left:11px;top:-8px;width:38px;height:14px;border:3px solid #fde68a;border-radius:50%;box-shadow:0 0 12px #fde68a}
 .avatarModel[data-lower="boots"] .lower{left:15px;top:49px;width:31px;height:12px;border-bottom:7px solid #334155}
 .avatarModel[data-lower="skates"] .lower{left:13px;top:58px;width:35px;height:4px;background:#cbd5e1;border-radius:5px;box-shadow:0 5px 0 -1px #64748b}
-.avatarModel[data-lower="flames"] .lower{left:16px;top:51px;width:26px;height:15px;background:#fb7185;clip-path:polygon(0 100%,12% 35%,34% 70%,50% 0,66% 70%,88% 35%,100% 100%)}
-.avatarModel[data-lower="jet"] .lower{left:15px;top:48px;width:30px;height:14px;background:#94a3b8;border-radius:4px;box-shadow:0 9px 0 -3px #fb923c}
+.avatarModel[data-lower="flames"] .lower{left:12px;top:48px;width:34px;height:20px;background:linear-gradient(180deg,#fbbf24 0 28%,#fb923c 29% 55%,#fb7185 56%);clip-path:polygon(0 100%,10% 42%,27% 68%,40% 10%,54% 68%,68% 30%,82% 67%,100% 40%,92% 100%);filter:drop-shadow(0 4px 5px #fb718866);animation:flameFlicker .16s ease-in-out infinite alternate}
+.avatarModel[data-lower="jet"] .lower{left:11px;top:47px;width:36px;height:16px;background:linear-gradient(90deg,#475569,#cbd5e1,#475569);border:2px solid #0b1220;border-radius:5px;box-shadow:0 2px 8px #0006}.avatarModel[data-lower="jet"] .lower:after{content:"";position:absolute;left:4px;right:4px;bottom:-13px;height:13px;background:linear-gradient(180deg,#fde68a,#fb923c 45%,transparent);clip-path:polygon(20% 0,80% 0,100% 100%,50% 65%,0 100%);filter:drop-shadow(0 3px 4px #fb923c88);animation:jetFlicker .12s ease-in-out infinite alternate}
 .avatarModel.tiny{transform:scale(.62);transform-origin:left center;margin-right:-20px}.avatarModel.preview{width:90px;height:90px;transform:scale(1.25);transform-origin:center;margin:0 auto}.avatarModel.resultAvatar{transform:scale(1.35);margin:8px auto 15px;display:block}
 .roomSettings,.roomCustomizer{margin:12px 0;padding:12px;border:1px solid #263754;border-radius:14px;background:#0a1324;text-align:left}
 .roomSettings{display:flex;align-items:center;gap:12px}.roomSettings label{font-size:10px;letter-spacing:2px;color:#fbbf24;font-weight:950}.roomSettings select{margin-left:8px;background:#111d32;color:#fff;border:1px solid #33445f;border-radius:9px;padding:7px}.roomSettings span{color:#8494ad;font-size:11px}
@@ -45,3 +45,6 @@
 @keyframes resultsSweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 @keyframes noticeIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
 @media(max-width:700px){.roomSettings{align-items:flex-start;flex-direction:column}.resultsCard{justify-content:flex-start;padding-top:40px}.pod{min-height:180px}.pod.first{min-height:225px}.otherPlayers{position:relative;right:auto;bottom:auto;margin:8px 0 10px;max-height:140px}.resultsCard .row{margin-top:8px}}
+
+@keyframes flameFlicker{from{transform:scaleY(.9) translateY(1px)}to{transform:scaleY(1.08) translateY(-1px)}}
+@keyframes jetFlicker{from{transform:scaleY(.85)}to{transform:scaleY(1.12)}}
