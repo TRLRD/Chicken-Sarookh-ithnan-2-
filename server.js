@@ -20,7 +20,7 @@ const POWERUPS=[
 
 function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(rooms.has(c));return c}
 function cleanName(n){return String(n||"Chicken").replace(/[<>]/g,"").trim().slice(0,16)||"Chicken"}
-const COSMETICS={upper:["none","crown","sunglasses","chef","halo"],lower:["none","boots","skates","flames","jet"]};
+const COSMETICS={upper:["none","crown","sunglasses","chef","halo","viking","pilot","cowboy","wizard","headphones","knight"],lower:["none","boots","skates","flames","jet","goldboots","ice","lightning","sneakers","hover"]};
 function cleanCosmetics(c){c=c&&typeof c==="object"?c:{};return {color:COLORS.includes(c.color)?c.color:COLORS[0],upper:COSMETICS.upper.includes(c.upper)?c.upper:"none",lower:COSMETICS.lower.includes(c.lower)?c.lower:"none"}}
 function spawn(i){return [{x:180,y:180},{x:1020,y:180},{x:180,y:520},{x:1020,y:520},{x:600,y:160},{x:600,y:540},{x:300,y:350},{x:900,y:350}][i%8]}
 function newRocket(speed=210,r=25){const a=Math.random()*Math.PI*2;return {x:W/2,y:H/2,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,id:Math.random().toString(36).slice(2),bounceSpeed:1.06}}
@@ -121,6 +121,7 @@ function tick(r){
   p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.kickCooldown=Math.max(0,p.kickCooldown-dt);
   for(const q of [...r.powerups])if(Math.hypot(p.x-q.x,p.y-q.y)<34){collect(r,p,q);break}
  }
+ const shieldBlocked=new Set();
  for(const q of r.rockets){
   const prevX=q.x,prevY=q.y;
   q.x+=q.vx*dt*speedBoost;q.y+=q.vy*dt*speedBoost;
@@ -130,12 +131,13 @@ function tick(r){
   if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   const currentSpeed=Math.hypot(q.vx,q.vy),maxSpeed=560;if(currentSpeed>maxSpeed){const k=maxSpeed/currentSpeed;q.vx*=k;q.vy*=k}
   for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
+   if(shieldBlocked.has(p.id))continue;
    const dx=q.x-prevX,dy=q.y-prevY,len2=dx*dx+dy*dy;
    const t=len2?Math.max(0,Math.min(1,((p.x-prevX)*dx+(p.y-prevY)*dy)/len2)):0;
    const cx=prevX+dx*t,cy=prevY+dy*t;
    const hitRadius=Math.max(18,q.r*.72)+18;
    if(Math.hypot(p.x-cx,p.y-cy)<hitRadius){
-    if(p.shield){p.shield=false;io.to(r.code).emit("shieldBreak",p.id)}
+    if(p.shield){p.shield=false;shieldBlocked.add(p.id);io.to(r.code).emit("shieldBreak",p.id)}
     else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
    }
   }
