@@ -66,7 +66,7 @@ function finishRound(r,winner){
 function finalResults(r){
  return Object.values(r.players).sort((a,b)=>b.score-a.score||b.roundWins-a.roundWins).map((p,i)=>({
   place:i+1,id:p.id,name:p.name,score:p.score,roundWins:p.roundWins,survival:p.totalSurvival,
-  powerups:p.powerupsCollected,kicks:p.kicksLanded,dashes:p.dashesUsed
+  powerups:p.powerupsCollected,kicks:p.kicksLanded,dashes:p.dashesUsed,color:p.color,upper:p.upper,lower:p.lower
  }));
 }
 function maybeChaos(r){
@@ -89,7 +89,7 @@ function collect(r,p,q){
  if(q.type==="SHIELD")p.shield=true;
  if(q.type==="ZAP"){
   const targets=Object.values(r.players).filter(x=>x.alive&&x.id!==p.id);
-  if(targets.length){const t=targets[Math.floor(Math.random()*targets.length)];const lost=Math.min(75,t.score);t.score-=lost;p.score+=lost;io.to(r.code).emit("scoreFx",{id:p.id,amount:lost,label:"SCORE ZAP"});io.to(r.code).emit("scoreFx",{id:t.id,amount:-lost,label:"ZAPPED"})}
+  if(targets.length){const t=targets[Math.floor(Math.random()*targets.length)];const lost=Math.min(75,t.roundScore||0);t.roundScore-=lost;p.roundScore+=lost;io.to(r.code).emit("scoreFx",{id:p.id,amount:lost,label:"SCORE ZAP"});io.to(r.code).emit("scoreFx",{id:t.id,amount:-lost,label:"ZAPPED"})}
  }
  if(q.type==="REDIRECT"){for(const rocket of r.rockets){rocket.vx*=-1;rocket.vy*=-1}p.redirectUntil=Date.now()+q.duration}
  if(q.type==="CHAOS"){r.event="CHICKEN PANIC";r.eventUntil=Date.now()+q.duration}
@@ -155,7 +155,7 @@ io.on("connection",socket=>{
   r.players[socket.id]=p;socket.join(r.code);socket.room=r.code;socket.data.name=n;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("setCosmetics",data=>{const r=rooms.get(socket.room),p=r?.players[socket.id];if(!r||!p||r.state!=="lobby")return;const cos=cleanCosmetics(data);p.color=cos.color;p.upper=cos.upper;p.lower=cos.lower;broadcast(r)});
- socket.on("start",()=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||Object.keys(r.players).length<MIN)return;for(const p of Object.values(r.players)){p.score=0;p.roundScore=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0}startRound(r)});
+ socket.on("start",()=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||Object.values(r.players).filter(p=>p.connected!==false).length<MIN)return;for(const p of Object.values(r.players)){p.score=0;p.roundScore=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0}startRound(r)});
  socket.on("input",({x,y})=>{
   const r=rooms.get(socket.room),p=r?.players[socket.id];if(!p||!p.alive||r.state!=="playing")return;
   x=Math.max(-1,Math.min(1,Number(x)||0));y=Math.max(-1,Math.min(1,Number(y)||0));const m=Math.hypot(x,y);if(m>1){x/=m;y/=m}
