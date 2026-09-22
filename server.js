@@ -20,16 +20,19 @@ const POWERUPS=[
 
 function code(){let c;do c=Math.random().toString(36).slice(2,6).toUpperCase();while(rooms.has(c));return c}
 function cleanName(n){return String(n||"Chicken").replace(/[<>]/g,"").trim().slice(0,16)||"Chicken"}
+const COSMETICS={upper:["none","crown","sunglasses","chef","halo"],lower:["none","boots","skates","flames","jet"]};
+function cleanCosmetics(c){c=c&&typeof c==="object"?c:{};return {color:COLORS.includes(c.color)?c.color:COLORS[0],upper:COSMETICS.upper.includes(c.upper)?c.upper:"none",lower:COSMETICS.lower.includes(c.lower)?c.lower:"none"}}
+function playerData(name,color,cosmetics,pos){const c=cleanCosmetics(cosmetics);return {id:name,name:cleanName(color),color:c.color,upper:c.upper,lower:c.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false}}
 function spawn(i){return [{x:180,y:180},{x:1020,y:180},{x:180,y:520},{x:1020,y:520},{x:600,y:160},{x:600,y:540},{x:300,y:350},{x:900,y:350}][i%8]}
-function newRocket(speed=260){const a=Math.random()*Math.PI*2;return {x:W/2,y:H/2,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:25,id:Math.random().toString(36).slice(2)}}
+function newRocket(speed=210,r=25){const a=Math.random()*Math.PI*2;return {x:W/2,y:H/2,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,id:Math.random().toString(36).slice(2),bounceSpeed:1.06}}
 function pickPower(){const total=POWERUPS.reduce((s,p)=>s+p.weight,0);let n=Math.random()*total;for(const p of POWERUPS){n-=p.weight;if(n<=0)return p}return POWERUPS[0]}
 function publicRoom(r){
- return {code:r.code,hostId:r.hostId,state:r.state,round:r.round,players:Object.values(r.players).map(p=>({id:p.id,name:p.name,color:p.color,alive:p.alive,score:p.score}))};
+ return {code:r.code,hostId:r.hostId,state:r.state,round:r.round,players:Object.values(r.players).map(p=>({id:p.id,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,score:p.score}))};
 }
 function broadcast(r){io.to(r.code).emit("state",publicRoom(r))}
 function emitGame(r){
  io.to(r.code).emit("gameState",{players:Object.values(r.players).map(p=>({
-  id:p.id,x:p.x,y:p.y,targetX:p.x,targetY:p.y,name:p.name,color:p.color,alive:p.alive,score:p.score,
+  id:p.id,x:p.x,y:p.y,targetX:p.x,targetY:p.y,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,score:p.score,
   dashCooldown:p.dashCooldown,speedUntil:p.speedUntil,shield:p.shield
  })),rockets:r.rockets,round:r.round,state:r.state,event:r.event,eventUntil:r.eventUntil,
  powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,type:q.type,label:q.label,rarity:q.rarity}))});
@@ -68,9 +71,11 @@ function finalResults(r){
 }
 function maybeChaos(r){
  if(r.state!=="playing"||r.event)return;
- const events=["ROCKET BOOST","DOUBLE SAROOKH","SHRINKING ARENA","CHICKEN PANIC"];
- const e=events[Math.floor(Math.random()*events.length)];r.event=e;r.eventUntil=Date.now()+5000;
- if(e==="DOUBLE SAROOKH"&&r.rockets.length<2)r.rockets.push(newRocket(280));
+ const events=["ROCKET BOOST","DOUBLE SAROOKH","GIANT SAROOKH","SHRINKING ARENA","CHICKEN PANIC","BLACKOUT"];
+ const e=events[Math.floor(Math.random()*events.length)];r.event=e;r.eventUntil=Date.now()+5000;if(e==="BLACKOUT")r.blackoutUntil=r.eventUntil;
+ if(e==="DOUBLE SAROOKH"&&r.rockets.length<2)r.rockets.push(newRocket(210));
+ if(e==="GIANT SAROOKH")r.rockets[0].r=52;
+ if(e==="BLACKOUT")r.blackoutUntil=r.eventUntil;
  io.to(r.code).emit("event",{name:e,duration:5000});
 }
 function spawnPowerup(r){
@@ -96,7 +101,8 @@ function tick(r){
  const now=Date.now(),dt=TICK/1000;
  const speedBoost=r.event==="ROCKET BOOST"&&now<r.eventUntil?1.75:1;
  const panic=r.event==="CHICKEN PANIC"&&now<r.eventUntil?1.35:1;
- if(r.eventUntil&&now>=r.eventUntil){r.event=null;r.rockets=r.rockets.slice(0,1)}
+ if(r.eventUntil&&now>=r.eventUntil){r.event=null;r.rockets=r.rockets.slice(0,1);if(r.rockets[0])r.rockets[0].r=25;r.blackoutUntil=0}
+ if(r.event==="BLACKOUT"&&now<r.eventUntil){}
  for(const p of Object.values(r.players))if(p.alive){
   const mult=(p.speedUntil>now?1.55:1)*panic;
   if(p.dashUntil>now){p.x+=p.lastDx*11;p.y+=p.lastDy*11}else{p.x+=p.vx*dt*mult;p.y+=p.vy*dt*mult}
@@ -106,8 +112,11 @@ function tick(r){
  }
  for(const q of r.rockets){
   q.x+=q.vx*dt*speedBoost;q.y+=q.vy*dt*speedBoost;
-  if(q.x<q.r){q.x=q.r;q.vx=Math.abs(q.vx)}if(q.x>W-q.r){q.x=W-q.r;q.vx=-Math.abs(q.vx)}
-  if(q.y<q.r){q.y=q.r;q.vy=Math.abs(q.vy)}if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy)}
+  if(q.x<q.r){q.x=q.r;q.vx=Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
+  if(q.x>W-q.r){q.x=W-q.r;q.vx=-Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
+  if(q.y<q.r){q.y=q.r;q.vy=Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
+  if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
+  const currentSpeed=Math.hypot(q.vx,q.vy),maxSpeed=560;if(currentSpeed>maxSpeed){const k=maxSpeed/currentSpeed;q.vx*=k;q.vy*=k}
   for(const p of Object.values(r.players))if(p.alive&&Math.hypot(p.x-q.x,p.y-q.y)<q.r+22){
    if(p.shield){p.shield=false;io.to(r.code).emit("shieldBreak",p.id)}
    else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
@@ -129,8 +138,8 @@ function leave(socket){
 io.on("connection",socket=>{
  socket.on("create",name=>{
   if(socket.room)return;
-  const c=code(),p={id:socket.id,name:cleanName(name),color:COLORS[0],score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:W/2,y:H/2,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
-  const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,rocket:null,rockets:[],event:null,eventUntil:0,powerups:[]};
+  const c=code(),data=typeof name==="object"?name:{name},pos=spawn(0),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:cleanName(data.name),color:cos.color,upper:cos.upper,lower:cos.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
+  const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,rocket:null,rockets:[],event:null,eventUntil:0,blackoutUntil:0,powerups:[]};
   rooms.set(c,r);socket.join(c);socket.room=c;socket.data.name=p.name;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("join",({room,name})=>{
@@ -138,8 +147,8 @@ io.on("connection",socket=>{
   if(!r)return socket.emit("errorMsg","Room not found!");
   if(Object.keys(r.players).length>=MAX)return socket.emit("errorMsg","Room is full!");
   if(r.state!=="lobby"&&r.state!=="matchEnd")return socket.emit("errorMsg","Game already started!");
-  const names=new Set(Object.values(r.players).map(p=>p.name.toLowerCase()));let n=cleanName(name),base=n,i=2;while(names.has(n.toLowerCase()))n=(base.slice(0,13)+" "+i++).trim();
-  const idx=Object.keys(r.players).length,s=spawn(idx),p={id:socket.id,name:n,color:COLORS[idx%COLORS.length],score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
+  const names=new Set(Object.values(r.players).map(p=>p.name.toLowerCase()));const data=typeof name==="object"?name:{name};let n=cleanName(data.name),base=n,i=2;while(names.has(n.toLowerCase()))n=(base.slice(0,13)+" "+i++).trim();
+  const idx=Object.keys(r.players).length,s=spawn(idx),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:n,color:cos.color,upper:cos.upper,lower:cos.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
   r.players[socket.id]=p;socket.join(r.code);socket.room=r.code;socket.data.name=n;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("start",()=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||Object.keys(r.players).length<MIN)return;for(const p of Object.values(r.players)){p.score=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0}startRound(r)});
