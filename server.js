@@ -34,14 +34,14 @@ function emitGame(r){
  })),rockets:r.rockets,round:r.round,state:r.state,event:r.event,eventUntil:r.eventUntil,
  powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,type:q.type,label:q.label,rarity:q.rarity}))});
 }
-function clearTimers(r){for(const k of ["tick","chaosTimer","scoreTimer","countdownTimer","nextTimer"])if(r[k]){clearInterval(r[k]);clearTimeout(r[k]);r[k]=null}}
+function clearTimers(r){for(const k of ["tick","chaosTimer","scoreTimer","countdownTimer","nextTimer","powerupTimer"])if(r[k]){clearInterval(r[k]);clearTimeout(r[k]);r[k]=null}}
 function startRound(r){
  clearTimers(r);r.state="countdown";r.round++;r.event=null;r.eventUntil=0;r.powerups=[];
  let i=0;for(const p of Object.values(r.players)){p.alive=true;const s=spawn(i++);p.x=s.x;p.y=s.y;p.vx=0;p.vy=0;p.lastDx=0;p.lastDy=-1;p.dashUntil=0;p.dashCooldown=0;p.kickCooldown=0;p.speedUntil=0;p.shield=false;p.roundSurvival=0}
  r.rocket=newRocket(210);r.rockets=[r.rocket];r.roundStartedAt=Date.now()+3200;r.lastScoreTick=Date.now();
  broadcast(r);io.to(r.code).emit("countdown");
  r.countdownTimer=setTimeout(()=>{r.state="playing";r.roundStartedAt=Date.now();broadcast(r)},3200);
- r.tick=setInterval(()=>tick(r),TICK);r.chaosTimer=setInterval(()=>maybeChaos(r),22000);
+ r.tick=setInterval(()=>tick(r),TICK);r.chaosTimer=setInterval(()=>maybeChaos(r),22000);r.powerupTimer=setInterval(()=>spawnPowerup(r),7000);
  r.scoreTimer=setInterval(()=>awardSurvival(r),1000);
 }
 function awardSurvival(r){
