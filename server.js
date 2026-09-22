@@ -26,15 +26,15 @@ function spawn(i){return [{x:180,y:180},{x:1020,y:180},{x:180,y:520},{x:1020,y:5
 function newRocket(speed=210,r=25){const a=Math.random()*Math.PI*2;return {x:W/2,y:H/2,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r,id:Math.random().toString(36).slice(2),bounceSpeed:1.06}}
 function pickPower(){const total=POWERUPS.reduce((s,p)=>s+p.weight,0);let n=Math.random()*total;for(const p of POWERUPS){n-=p.weight;if(n<=0)return p}return POWERUPS[0]}
 function publicRoom(r){
- return {code:r.code,hostId:r.hostId,state:r.state,round:r.round,players:Object.values(r.players).map(p=>({id:p.id,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,score:p.score}))};
+ return {code:r.code,hostId:r.hostId,state:r.state,round:r.round,players:Object.values(r.players).map(p=>({id:p.id,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,connected:p.connected!==false,score:p.score}))};
 }
 function broadcast(r){io.to(r.code).emit("state",publicRoom(r))}
 function emitGame(r){
  io.to(r.code).emit("gameState",{players:Object.values(r.players).map(p=>({
-  id:p.id,x:p.x,y:p.y,targetX:p.x,targetY:p.y,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,score:p.score,
+  id:p.id,x:p.x,y:p.y,targetX:p.x,targetY:p.y,name:p.name,color:p.color,upper:p.upper,lower:p.lower,alive:p.alive,connected:p.connected!==false,score:p.score,
   dashCooldown:p.dashCooldown,speedUntil:p.speedUntil,shield:p.shield
  })),rockets:r.rockets,round:r.round,state:r.state,event:r.event,eventUntil:r.eventUntil,
- powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,type:q.type,label:q.label,rarity:q.rarity}))});
+ powerups:r.powerups.map(q=>({id:q.id,x:q.x,y:q.y,type:q.type,label:q.label,rarity:q.rarity})),serverNow:Date.now(),roundStartedAt:r.roundStartedAt||0});
 }
 function clearTimers(r){for(const k of ["tick","chaosTimer","scoreTimer","countdownTimer","nextTimer","powerupTimer"])if(r[k]){clearInterval(r[k]);clearTimeout(r[k]);r[k]=null}}
 function startRound(r){
@@ -48,7 +48,7 @@ function startRound(r){
 }
 function awardSurvival(r){
  if(r.state!=="playing")return;const now=Date.now();
- for(const p of Object.values(r.players))if(p.alive){
+ for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
   p.score+=10;p.roundSurvival++;
   if(p.roundSurvival%10===0){p.score+=50;io.to(r.code).emit("scoreFx",{id:p.id,amount:50,label:"SURVIVAL BONUS"})}
  }
@@ -120,23 +120,26 @@ function tick(r){
    else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
   }
  }
- const alive=Object.values(r.players).filter(p=>p.alive);
+ const alive=Object.values(r.players).filter(p=>p.connected!==false&&p.alive);
  if(alive.length<=1&&Object.keys(r.players).length>=MIN)finishRound(r,alive[0]);
  emitGame(r);
 }
 function leave(socket){
  const r=socket.room&&rooms.get(socket.room);if(!r)return;
  delete r.players[socket.id];
- if(!Object.keys(r.players).length){clearTimers(r);rooms.delete(r.code);return}
- if(r.hostId===socket.id)r.hostId=Object.keys(r.players)[0];
+ const p=r.players[socket.id];if(p){p.connected=false;p.alive=false;}
+ const connected=Object.values(r.players).filter(x=>x.connected!==false);
+ if(!connected.length){clearTimers(r);rooms.delete(r.code);return}
+ if(r.hostId===socket.id)r.hostId=connected[0].id;
  io.to(r.code).emit("notice",socket.data.name+" left the game.");
- if(Object.keys(r.players).length<MIN&&r.state!=="lobby"&&r.state!=="matchEnd"){clearTimers(r);r.state="lobby"}
+ if(r.state==="playing"){const alive=connected.filter(x=>x.alive);if(alive.length<=1&&connected.length>=1)finishRound(r,alive[0]||null)}
+ if(connected.length<MIN&&r.state!=="lobby"&&r.state!=="matchEnd"&&r.state!=="playing"){clearTimers(r);r.state="lobby"}
  broadcast(r);
 }
 io.on("connection",socket=>{
  socket.on("create",name=>{
   if(socket.room)return;
-  const c=code(),data=typeof name==="object"?name:{name},pos=spawn(0),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:cleanName(data.name),color:cos.color,upper:cos.upper,lower:cos.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
+  const c=code(),data=typeof name==="object"?name:{name},pos=spawn(0),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:cleanName(data.name),color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:pos.x,y:pos.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
   const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,rocket:null,rockets:[],event:null,eventUntil:0,blackoutUntil:0,powerups:[]};
   rooms.set(c,r);socket.join(c);socket.room=c;socket.data.name=p.name;socket.emit("joined",publicRoom(r));broadcast(r);
  });
@@ -145,8 +148,9 @@ io.on("connection",socket=>{
   if(!r)return socket.emit("errorMsg","Room not found!");
   if(Object.keys(r.players).length>=MAX)return socket.emit("errorMsg","Room is full!");
   if(r.state!=="lobby"&&r.state!=="matchEnd")return socket.emit("errorMsg","Game already started!");
-  const names=new Set(Object.values(r.players).map(p=>p.name.toLowerCase()));const data=typeof name==="object"?name:{name};let n=cleanName(data.name),base=n,i=2;while(names.has(n.toLowerCase()))n=(base.slice(0,13)+" "+i++).trim();
-  const idx=Object.keys(r.players).length,s=spawn(idx),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:n,color:cos.color,upper:cos.upper,lower:cos.lower,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
+  const data=typeof name==="object"?name:{name};
+  const names=new Set(Object.values(r.players).map(p=>p.name.toLowerCase()));let n=cleanName(data.name),base=n,i=2;while(names.has(n.toLowerCase()))n=(base.slice(0,13)+" "+i++).trim();
+  const idx=Object.keys(r.players).length,s=spawn(idx),cos=cleanCosmetics(data.cosmetics),p={id:socket.id,name:n,color:cos.color,upper:cos.upper,lower:cos.lower,connected:true,score:0,roundWins:0,totalSurvival:0,powerupsCollected:0,kicksLanded:0,dashesUsed:0,alive:true,x:s.x,y:s.y,vx:0,vy:0,lastDx:0,lastDy:-1,dashCooldown:0,kickCooldown:0,speedUntil:0,shield:false};
   r.players[socket.id]=p;socket.join(r.code);socket.room=r.code;socket.data.name=n;socket.emit("joined",publicRoom(r));broadcast(r);
  });
  socket.on("start",()=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||Object.keys(r.players).length<MIN)return;for(const p of Object.values(r.players)){p.score=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0}startRound(r)});
