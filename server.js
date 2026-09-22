@@ -41,8 +41,19 @@ function startRound(r){
  clearTimers(r);r.state="countdown";r.round++;r.event=null;r.eventUntil=0;r.powerups=[];
  for(const p of Object.values(r.players)){p.alive=true;p.roundScore=0;p.x=W/2;p.y=H/2;p.vx=0;p.vy=0;p.lastDx=0;p.lastDy=-1;p.dashUntil=0;p.dashCooldown=0;p.kickCooldown=0;p.speedUntil=0;p.shield=false;p.roundSurvival=0}
  r.rocket=null;r.rockets=[];r.roundStartedAt=Date.now();r.lastScoreTick=Date.now();
+ console.log("ROUND PREP START",{round:r.round,state:r.state,rockets:r.rockets.length});
  broadcast(r);io.to(r.code).emit("countdown",{duration:5000});
- r.countdownTimer=setTimeout(()=>{if(!rooms.has(r.code)||r.state!=="countdown")return;r.state="playing";r.roundStartedAt=Date.now();r.rocket=newRocket(210);r.rockets=[r.rocket];broadcast(r);emitGame(r)},3000);
+ r.countdownTimer=setTimeout(()=>{
+  if(!rooms.has(r.code)||r.state!=="countdown")return;
+  console.log("PREP COMPLETE",{round:r.round,state:r.state,rocketsBeforeSpawn:r.rockets.length});
+  r.state="playing";
+  r.roundStartedAt=Date.now();
+  if(r.rockets.length!==0)r.rockets=[];
+  r.rocket=newRocket(210);
+  r.rockets=[r.rocket];
+  console.log("ROCKET SPAWNED",{round:r.round,rockets:r.rockets.length});
+  broadcast(r);emitGame(r);
+},5000);
  r.tick=setInterval(()=>tick(r),TICK);r.chaosTimer=setInterval(()=>maybeChaos(r),22000);r.powerupTimer=setInterval(()=>spawnPowerup(r),7000);
  r.scoreTimer=setInterval(()=>awardSurvival(r),1000);
 }
@@ -105,7 +116,7 @@ function tick(r){
  if(r.event==="BLACKOUT"&&now<r.eventUntil){}
  for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
   const mult=(p.speedUntil>now?1.55:1)*panic;
-  if(p.dashUntil>now){p.x+=p.lastDx*11;p.y+=p.lastDy*11}else{p.x+=p.vx*dt*mult;p.y+=p.vy*dt*mult}
+  p.x+=p.vx*dt*mult;p.y+=p.vy*dt*mult
   p.x=Math.max(35,Math.min(W-35,p.x));p.y=Math.max(45,Math.min(H-35,p.y));
   p.dashCooldown=Math.max(0,p.dashCooldown-dt);p.kickCooldown=Math.max(0,p.kickCooldown-dt);
   for(const q of [...r.powerups])if(Math.hypot(p.x-q.x,p.y-q.y)<34){collect(r,p,q);break}
@@ -172,8 +183,16 @@ io.on("connection",socket=>{
   p.vx=x*260;p.vy=y*260;if(m>.1){p.lastDx=x;p.lastDy=y}
  });
  socket.on("dash",()=>{
-  const r=rooms.get(socket.room),p=r?.players[socket.id];if(!p||!p.alive||r.state!=="playing"||p.dashCooldown>0)return;
-  p.dashCooldown=p.dashCooldown<=0?2:0;p.dashUntil=Date.now()+170;p.dashesUsed++;io.to(r.code).emit("action",{type:"dash",id:p.id});
+  const r=rooms.get(socket.room),p=r?.players[socket.id];
+  if(!p||!p.alive||!["playing","countdown"].includes(r.state)||p.dashCooldown>0)return;
+  p.dashCooldown=2;
+const dx=p.lastDx||0,dy=p.lastDy||-1;
+const dashDistance=110;
+p.x=Math.max(35,Math.min(W-35,p.x+dx*dashDistance));
+p.y=Math.max(45,Math.min(H-35,p.y+dy*dashDistance));
+p.vx=dx*260;p.vy=dy*260;
+p.dashesUsed++;
+io.to(r.code).emit("action",{type:"dash",id:p.id});
  });
  socket.on("kick",()=>{
   const r=rooms.get(socket.room),p=r?.players[socket.id];if(!p||!p.alive||r.state!=="playing"||p.kickCooldown>0)return;
