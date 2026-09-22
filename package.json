@@ -1,0 +1,9 @@
+{
+  "name":"chicken-sarookh-2",
+  "version":"1.0.0",
+  "private":true,
+  "description":"Chicken Sarookh 2 - chaotic multiplayer browser party game",
+  "main":"server.js",
+  "scripts":{"start":"node server.js"},
+  "dependencies":{"express":"^4.21.2","socket.io":"^4.8.1"}
+}
