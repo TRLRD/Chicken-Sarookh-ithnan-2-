@@ -23,7 +23,7 @@ socket.on("errorMsg",err);
 socket.on("joined",r=>{room=r;me=r.players.find(p=>p.id===socket.id);show(lobby);renderLobby(r)});
 function renderLobby(r){$("roomCode").textContent=r.code;$("players").innerHTML=r.players.map(p=>`<div class="player" style="--c:${p.color}">${avatarMarkup(p,"tiny")}<b>${esc(p.name)}</b>${p.id===r.hostId?'<span class="host">HOST</span>':'<span class="status">READY</span>'}</div>`).join("");$("roundSetting").value=String(r.maxRounds||3);const self=r.players.find(p=>p.id===socket.id);if(self){$("roomColorChoice").value=self.color;$("roomUpperChoice").value=self.upper||"none";$("roomLowerChoice").value=self.lower||"none";$("roomAvatarPreview").innerHTML=avatarMarkup(self,"preview")}$("roundSetting").disabled=r.hostId!==socket.id;$("roundSetting").closest("label").classList.toggle("hidden",r.hostId!==socket.id);$("start").classList.toggle("hidden",r.hostId!==socket.id||r.players.length<2);$("lobbyMsg").textContent=r.players.length<2?"Waiting for another chicken...":"All set. Host, launch the chaos.";startMusic("lobby")}
 socket.on("state",r=>{room=r;me=r.players.find(p=>p.id===socket.id)||me;players={};r.players.forEach(p=>players[p.id]=p);if(r.state==="lobby")renderLobby(r);if(["playing","countdown","roundEnd"].includes(r.state)){show(game);startMusic("game")}if(r.state==="matchEnd")show(game);renderLB();$("round").textContent=r.round?"ROUND "+r.round:"";});
-socket.on("gameState",d=>{players={};const freshRound=prepRound!==d.round;const enteringPlaying=prepActive&&d.state==="playing";prepActive=d.state==="countdown";d.players.forEach(p=>{players[p.id]=p;const q=localPos[p.id];if(!q||freshRound||d.state==="countdown"||q.round!==d.round){localPos[p.id]={x:p.x,y:p.y,round:d.round}}else if(enteringPlaying){q.x=p.x;q.y=p.y}});prepRound=d.round;rockets=d.rockets||[];powerups=d.powerups||[];eventName=d.event;eventUntil=d.eventUntil||0;const self=players[socket.id];$("spectator").classList.toggle("hidden",!!self?.alive||!self);renderLB();draw()});
+socket.on("gameState",d=>{const freshRound=prepRound!==d.round;if(freshRound)localPos={};prepActive=d.state==="countdown";prepRound=d.round;players={};d.players.forEach(p=>{players[p.id]=p;localPos[p.id]={x:p.x,y:p.y,round:d.round}});rockets=d.rockets||[];powerups=d.powerups||[];eventName=d.event;eventUntil=d.eventUntil||0;const self=players[socket.id];$("spectator").classList.toggle("hidden",!!self?.alive||!self);renderLB();draw()});
 socket.on("countdown",d=>{show(game);prepActive=true;let n=Math.ceil((d?.duration||5000)/1000);$("countdown").classList.remove("hidden");$("countdown").textContent=n;sound(440,.12);const t=setInterval(()=>{n--;if(n<=0){clearInterval(t);$("countdown").textContent="SAROOKH!";sound(880,.25);setTimeout(()=>$("countdown").classList.add("hidden"),550)}else{$("countdown").textContent=n;sound(440+n*80,.12)}},1000)});
 socket.on("roundWinner",w=>{toast("ROUND SURVIVOR: "+w.name);});
 socket.on("matchResults",list=>showResults(list));
@@ -31,7 +31,7 @@ socket.on("hit",id=>{if(id===socket.id){flash();sound(90,.18)}});
 socket.on("shieldBreak",id=>{if(id===socket.id)toast("🛡️ SHIELD SAVED YOU")});
 socket.on("event",e=>{eventName=e.name;eventUntil=Date.now()+e.duration;toast("⚠ "+e.name+" ⚠");sound(330,.12);musicTone(55,.4,.18,"square")});
 socket.on("notice",t=>{toast(t);const n=$("leaveNotice");n.textContent=t;n.classList.remove("hidden");clearTimeout(n.t);n.t=setTimeout(()=>n.classList.add("hidden"),3200)});
-socket.on("scoreFx",d=>{fx.push({x:localPos[d.id]?.x||600,y:localPos[d.id]?.y||350,text:(d.amount>0?"+":"")+d.amount+" "+d.label,t:Date.now()});sound(d.amount>0?760:140,.1)});
+socket.on("scoreFx",d=>{const sp=players[d.id];fx.push({x:sp?.x||600,y:sp?.y||350,text:(d.amount>0?"+":"")+d.amount+" "+d.label,t:Date.now()});sound(d.amount>0?760:140,.1)});
 socket.on("powerup",d=>{if(d.id===socket.id)toast("⚡ "+d.label);sound(620,.12)});
 socket.on("action",d=>{if(d.id===socket.id)sound(d.type==="dash"?700:180,.08)});
 function renderLB(){const arr=Object.values(players).sort((a,b)=>(b.roundScore||0)-(a.roundScore||0));$("lbRows").innerHTML=arr.map((p,i)=>`<div class="lbRow ${p.id===socket.id?"me":""} ${p.alive?"":"dead"}"><span class="rank">${i+1}</span><span>${esc(p.name)} <small class="lbState">${p.connected===false?"LEFT":p.alive?"":"OUT"}</small></span><span class="score">${p.roundScore||0}</span></div>`).join("");const alive=arr.filter(p=>p.alive&&p.connected!==false).length;$("alive").textContent=alive+" ALIVE";const self=players[socket.id];$("personal").innerHTML=self?`<small>ROUND SCORE</small> ${self.roundScore||0} <em>TOTAL ${self.score||0}</em>`:""}
@@ -40,11 +40,30 @@ function showResults(list){show(results);startMusic("results");const top=list.sl
 function toast(t){$("toast").textContent=t;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").textContent="",1800)}
 function flash(){canvas.animate([{filter:"brightness(2.2)"},{filter:"brightness(1)"}],240)}
 function addKeys(e,v){const tag=document.activeElement?.tagName;if(game.classList.contains("hidden")&&(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA"))return;keys[e.key.toLowerCase()]=v}
-addEventListener("keydown",e=>{if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowLeft","ArrowDown","ArrowRight","Space"].includes(e.code))e.preventDefault();addKeys(e,true);if(e.code==="Space"){socket.emit("dash")}if(e.key.toLowerCase()==="e")socket.emit("kick");sendInput()});
-addEventListener("keyup",e=>{addKeys(e,false);sendInput()});
-addEventListener("blur",()=>{keys={};sendInput()});
-addEventListener("visibilitychange",()=>{if(document.hidden){keys={};sendInput()}});
-function sendInput(){let x=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),y=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(game.classList.contains("hidden")){x=0;y=0}socket.emit("input",{x,y})}
+const inputState={up:false,down:false,left:false,right:false};
+function setDirectionKey(code,value){
+ if(code==="KeyW"||code==="ArrowUp")inputState.up=value;
+ if(code==="KeyS"||code==="ArrowDown")inputState.down=value;
+ if(code==="KeyA"||code==="ArrowLeft")inputState.left=value;
+ if(code==="KeyD"||code==="ArrowRight")inputState.right=value;
+}
+addEventListener("keydown",e=>{
+ if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowLeft","ArrowDown","ArrowRight","Space"].includes(e.code))e.preventDefault();
+ setDirectionKey(e.code,true);
+ if(e.code==="Space"&&!e.repeat)socket.emit("dash");
+ if(e.code==="KeyE"&&!e.repeat)socket.emit("kick");
+ sendInput();
+});
+addEventListener("keyup",e=>{setDirectionKey(e.code,false);sendInput()});
+function clearInput(){inputState.up=inputState.down=inputState.left=inputState.right=false;sendInput()}
+addEventListener("blur",clearInput);
+addEventListener("visibilitychange",()=>{if(document.hidden)clearInput()});
+function sendInput(){
+ let x=(inputState.right?1:0)-(inputState.left?1:0);
+ let y=(inputState.down?1:0)-(inputState.up?1:0);
+ if(game.classList.contains("hidden")){x=0;y=0}
+ socket.emit("input",{x,y});
+}
 setInterval(sendInput,50);
 function draw(){
  ctx.clearRect(0,0,1200,700);ctx.fillStyle="#0b1425";ctx.fillRect(0,0,1200,700);
@@ -54,9 +73,8 @@ function draw(){
  for(const q of powerups)drawPower(q);for(const p of Object.values(players))drawChicken(p,false);for(const r of rockets)drawRocket(r);
  $("event").textContent=eventName&&Date.now()<eventUntil?eventName:"";const self=players[socket.id];$("cooldown").textContent=self?"DASH "+(self.dashCooldown>0?self.dashCooldown.toFixed(1)+"s":"READY"):"DASH READY";$("powerStatus").textContent=self?.shield?"🛡️ SHIELD READY":"";drawFx();
 }
-function smooth(p){const q=localPos[p.id]??={x:p.x,y:p.y,round:room?.round||0};const d=Math.hypot(p.x-q.x,p.y-q.y);const k=p.id===socket.id?Math.min(.9,.5+d*.02):Math.min(.55,.28+d*.015);q.x+=(p.x-q.x)*k;q.y+=(p.y-q.y)*k;return q}
 function drawChicken(p,hidden=false){
- const q=smooth(p),moving=Math.hypot(p.x-q.x,p.y-q.y)>1;ctx.save();ctx.globalAlpha=p.connected===false?.12:p.alive?1:.35;ctx.translate(q.x,q.y);
+ const q={x:p.x,y:p.y},moving=Math.hypot(p.vx||0,p.vy||0)>1;ctx.save();ctx.globalAlpha=p.connected===false?.12:p.alive?1:.35;ctx.translate(q.x,q.y);
  const bob=moving?Math.sin(Date.now()/70)*2:Math.sin(Date.now()/500);ctx.translate(0,bob);
  ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(0,3,24,0,Math.PI*2);ctx.fill();
  ctx.fillStyle="#f8fafc";ctx.beginPath();ctx.arc(0,-16,18,0,Math.PI*2);ctx.fill();
