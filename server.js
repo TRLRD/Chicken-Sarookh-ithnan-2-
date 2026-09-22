@@ -137,13 +137,12 @@ function tick(r){
  const shieldBlocked=new Set();
  for(const q of r.rockets){
   const prevX=q.x,prevY=q.y;
-  q.x+=q.vx*dt*speedBoost;q.y+=q.vy*dt*speedBoost;
+  const timeBurst=Object.values(r.players).some(p=>p.connected!==false&&p.alive&&p.timeBurstUntil>now&&Math.hypot(p.x-q.x,p.y-q.y)<260)?0.55:1;
+  q.x+=q.vx*dt*speedBoost*timeBurst;q.y+=q.vy*dt*speedBoost*timeBurst;
   if(q.x<q.r){q.x=q.r;q.vx=Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.x>W-q.r){q.x=W-q.r;q.vx=-Math.abs(q.vx);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.y<q.r){q.y=q.r;q.vy=Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
-  const timeBurst=Object.values(r.players).some(p=>p.connected!==false&&p.alive&&p.timeBurstUntil>now&&Math.hypot(p.x-q.x,p.y-q.y)<260)?0.55:1;
-  if(timeBurst!==1){q.vx*=timeBurst;q.vy*=timeBurst}
   for(const p of Object.values(r.players))if(p.connected!==false&&p.alive&&p.repulseUntil>now&&Math.hypot(p.x-q.x,p.y-q.y)<210){const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy)||1;q.vx+=dx/d*5;q.vy+=dy/d*5}
   const currentSpeed=Math.hypot(q.vx,q.vy),maxSpeed=560;if(currentSpeed>maxSpeed){const k=maxSpeed/currentSpeed;q.vx*=k;q.vy*=k}
   for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
