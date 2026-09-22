@@ -39,9 +39,12 @@ function showResults(list){show(results);const top=list.slice(0,3);$("podium").i
 function toast(t){$("toast").textContent=t;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").textContent="",1800)}
 function flash(){canvas.animate([{filter:"brightness(2.2)"},{filter:"brightness(1)"}],240)}
 function addKeys(e,v){const tag=document.activeElement?.tagName;if(game.classList.contains("hidden")&&(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA"))return;keys[e.key.toLowerCase()]=v}
-addEventListener("keydown",e=>{addKeys(e,true);if(e.code==="Space"){e.preventDefault();socket.emit("dash")}if(e.key.toLowerCase()==="e")socket.emit("kick")});
-addEventListener("keyup",e=>addKeys(e,false));
-setInterval(()=>{let x=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),y=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(game.classList.contains("hidden")){x=0;y=0}socket.emit("input",{x,y})},50);
+addEventListener("keydown",e=>{if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowLeft","ArrowDown","ArrowRight","Space"].includes(e.code))e.preventDefault();addKeys(e,true);if(e.code==="Space"){socket.emit("dash")}if(e.key.toLowerCase()==="e")socket.emit("kick");sendInput()});
+addEventListener("keyup",e=>{addKeys(e,false);sendInput()});
+addEventListener("blur",()=>{keys={};sendInput()});
+addEventListener("visibilitychange",()=>{if(document.hidden){keys={};sendInput()}});
+function sendInput(){let x=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),y=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(game.classList.contains("hidden")){x=0;y=0}socket.emit("input",{x,y})}
+setInterval(sendInput,50);
 function draw(){
  ctx.clearRect(0,0,1200,700);ctx.fillStyle="#0b1425";ctx.fillRect(0,0,1200,700);
  const shrink=eventName==="SHRINKING ARENA"&&Date.now()<eventUntil,pad=shrink?90:30;
@@ -50,7 +53,7 @@ function draw(){
  for(const q of powerups)drawPower(q);for(const p of Object.values(players))drawChicken(p,false);for(const r of rockets)drawRocket(r);
  $("event").textContent=eventName&&Date.now()<eventUntil?eventName:"";const self=players[socket.id];$("cooldown").textContent=self?"DASH "+(self.dashCooldown>0?self.dashCooldown.toFixed(1)+"s":"READY"):"DASH READY";$("powerStatus").textContent=self?.shield?"🛡️ SHIELD READY":"";drawFx();
 }
-function smooth(p){const q=localPos[p.id]??={x:p.x,y:p.y};q.x+=(p.x-q.x)*.34;q.y+=(p.y-q.y)*.34;return q}
+function smooth(p){const q=localPos[p.id]??={x:p.x,y:p.y};const d=Math.hypot(p.x-q.x,p.y-q.y);const k=p.id===socket.id?Math.min(.9,.5+d*.02):Math.min(.55,.28+d*.015);q.x+=(p.x-q.x)*k;q.y+=(p.y-q.y)*k;return q}
 function drawChicken(p,hidden=false){
  const q=smooth(p),moving=Math.hypot(p.x-q.x,p.y-q.y)>1;ctx.save();ctx.globalAlpha=p.connected===false?.12:p.alive?1:.35;ctx.translate(q.x,q.y);
  const bob=moving?Math.sin(Date.now()/70)*2:Math.sin(Date.now()/500);ctx.translate(0,bob);
