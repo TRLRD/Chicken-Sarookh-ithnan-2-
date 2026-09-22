@@ -42,7 +42,7 @@ function startRound(r){
  for(const p of Object.values(r.players)){p.alive=true;p.roundScore=0;p.x=W/2;p.y=H/2;p.vx=0;p.vy=0;p.lastDx=0;p.lastDy=-1;p.dashUntil=0;p.dashCooldown=0;p.kickCooldown=0;p.speedUntil=0;p.shield=false;p.roundSurvival=0}
  r.rocket=newRocket(210);r.rockets=[r.rocket];r.roundStartedAt=Date.now()+3000;r.lastScoreTick=Date.now();
  broadcast(r);io.to(r.code).emit("countdown",{duration:3000});
- r.countdownTimer=setTimeout(()=>{r.state="playing";r.roundStartedAt=Date.now();for(const p of Object.values(r.players)){p.x=spawn(Object.values(r.players).indexOf(p)).x;p.y=spawn(Object.values(r.players).indexOf(p)).y}broadcast(r)},3000);
+ r.countdownTimer=setTimeout(()=>{r.state="playing";r.roundStartedAt=Date.now();broadcast(r)},3000);
  r.tick=setInterval(()=>tick(r),TICK);r.chaosTimer=setInterval(()=>maybeChaos(r),22000);r.powerupTimer=setInterval(()=>spawnPowerup(r),7000);
  r.scoreTimer=setInterval(()=>awardSurvival(r),1000);
 }
@@ -96,8 +96,9 @@ function collect(r,p,q){
  io.to(r.code).emit("powerup",{id:p.id,type:q.type,label:q.label});
 }
 function tick(r){
- if(r.state!=="playing")return;
+ if(r.state!=="playing"&&r.state!=="countdown")return;
  const now=Date.now(),dt=TICK/1000;
+ if(r.state==="countdown"){for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){p.x+=p.vx*dt;p.y+=p.vy*dt;p.x=Math.max(35,Math.min(W-35,p.x));p.y=Math.max(45,Math.min(H-35,p.y));}emitGame(r);return;}
  const speedBoost=r.event==="ROCKET BOOST"&&now<r.eventUntil?1.75:1;
  const panic=r.event==="CHICKEN PANIC"&&now<r.eventUntil?1.35:1;
  if(r.eventUntil&&now>=r.eventUntil){r.event=null;r.rockets=r.rockets.slice(0,1);if(r.rockets[0])r.rockets[0].r=25;r.blackoutUntil=0}
@@ -157,7 +158,7 @@ io.on("connection",socket=>{
  socket.on("setCosmetics",data=>{const r=rooms.get(socket.room),p=r?.players[socket.id];if(!r||!p||r.state!=="lobby")return;const cos=cleanCosmetics(data);p.color=cos.color;p.upper=cos.upper;p.lower=cos.lower;broadcast(r)});
  socket.on("start",()=>{const r=rooms.get(socket.room);if(!r||r.hostId!==socket.id||Object.values(r.players).filter(p=>p.connected!==false).length<MIN)return;for(const p of Object.values(r.players)){p.score=0;p.roundScore=0;p.roundWins=0;p.totalSurvival=0;p.powerupsCollected=0;p.kicksLanded=0;p.dashesUsed=0}startRound(r)});
  socket.on("input",({x,y})=>{
-  const r=rooms.get(socket.room),p=r?.players[socket.id];if(!p||!p.alive||r.state!=="playing")return;
+  const r=rooms.get(socket.room),p=r?.players[socket.id];if(!p||!p.alive||!["playing","countdown"].includes(r.state))return;
   x=Math.max(-1,Math.min(1,Number(x)||0));y=Math.max(-1,Math.min(1,Number(y)||0));const m=Math.hypot(x,y);if(m>1){x/=m;y/=m}
   p.vx=x*260;p.vy=y*260;if(m>.1){p.lastDx=x;p.lastDy=y}
  });
