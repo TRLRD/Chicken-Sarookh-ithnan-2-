@@ -143,7 +143,8 @@ io.on("connection",socket=>{
   const r={code:c,hostId:socket.id,players:{[socket.id]:p},state:"lobby",round:0,rocket:null,rockets:[],event:null,eventUntil:0,blackoutUntil:0,powerups:[]};
   rooms.set(c,r);socket.join(c);socket.room=c;socket.data.name=p.name;socket.emit("joined",publicRoom(r));broadcast(r);
  });
- socket.on("join",(payload={})=>{\n  const {room,name}=payload;
+ socket.on("join",(payload={})=>{
+  const {room,name}=payload;
   const r=rooms.get(String(room||"").toUpperCase());
   if(!r)return socket.emit("errorMsg","Room not found!");
   if(Object.keys(r.players).length>=MAX)return socket.emit("errorMsg","Room is full!");
