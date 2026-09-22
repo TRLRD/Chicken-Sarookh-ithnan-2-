@@ -101,7 +101,7 @@ function tick(r){
  const panic=r.event==="CHICKEN PANIC"&&now<r.eventUntil?1.35:1;
  if(r.eventUntil&&now>=r.eventUntil){r.event=null;r.rockets=r.rockets.slice(0,1);if(r.rockets[0])r.rockets[0].r=25;r.blackoutUntil=0}
  if(r.event==="BLACKOUT"&&now<r.eventUntil){}
- for(const p of Object.values(r.players))if(p.alive){
+ for(const p of Object.values(r.players))if(p.connected!==false&&p.alive){
   const mult=(p.speedUntil>now?1.55:1)*panic;
   if(p.dashUntil>now){p.x+=p.lastDx*11;p.y+=p.lastDy*11}else{p.x+=p.vx*dt*mult;p.y+=p.vy*dt*mult}
   p.x=Math.max(35,Math.min(W-35,p.x));p.y=Math.max(45,Math.min(H-35,p.y));
@@ -115,13 +115,13 @@ function tick(r){
   if(q.y<q.r){q.y=q.r;q.vy=Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   if(q.y>H-q.r){q.y=H-q.r;q.vy=-Math.abs(q.vy);q.vx*=q.bounceSpeed;q.vy*=q.bounceSpeed}
   const currentSpeed=Math.hypot(q.vx,q.vy),maxSpeed=560;if(currentSpeed>maxSpeed){const k=maxSpeed/currentSpeed;q.vx*=k;q.vy*=k}
-  for(const p of Object.values(r.players))if(p.alive&&Math.hypot(p.x-q.x,p.y-q.y)<q.r+22){
+  for(const p of Object.values(r.players))if(p.connected!==false&&p.alive&&Math.hypot(p.x-q.x,p.y-q.y)<q.r+22){
    if(p.shield){p.shield=false;io.to(r.code).emit("shieldBreak",p.id)}
    else{p.alive=false;p.totalSurvival+=Math.floor((now-r.roundStartedAt)/1000);io.to(r.code).emit("hit",p.id)}
   }
  }
  const alive=Object.values(r.players).filter(p=>p.connected!==false&&p.alive);
- if(alive.length<=1&&Object.keys(r.players).length>=MIN)finishRound(r,alive[0]);
+ if(alive.length<=1&&Object.values(r.players).filter(p=>p.connected!==false).length>=1)finishRound(r,alive[0]);
  emitGame(r);
 }
 function leave(socket){
